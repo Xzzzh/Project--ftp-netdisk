@@ -1,0 +1,56 @@
+#include "head.h"
+
+void gets_handle(int new_fd, ptrain p)
+{
+	int ret;
+	int fd;
+	train t;
+	bzero(&t, sizeof(train));
+	t.len = p->len;
+	strcpy(t.buf, p->buf);
+	char command[7] = {0};
+	char filename[20] = {0};
+	sscanf(t.buf, "%s%s", command, filename);
+	puts(command);
+	puts(filename);
+	DIR *dir;
+	char cpath[50];
+	getcwd(cpath, sizeof(cpath));
+	dir = opendir(cpath);
+	if (NULL == dir)
+	{
+		perror("opendir");
+		return;
+	}
+	struct dirent *d;
+	while(NULL != (d = readdir(dir)))
+	{
+		if (!strcmp(d->d_name, filename))
+		{
+			bzero(&t, sizeof(train));
+			t.len = strlen(filename);
+			strcpy(t.buf, filename);
+			send(new_fd, &t, 4+t.len, 0);
+			fd = open(filename, O_RDWR);
+			if(-1 == fd)
+			{
+				perror("open");
+				goto END;
+			}
+			while((t.len = read(fd, t.buf, sizeof(t.buf))) > 0)
+			{
+				ret = send_n(new_fd, (char *)&t, 4+t.len);
+				if (-1 == ret)
+				{
+					goto END;
+				}
+			}
+		}
+	}
+//	strcpy(t.buf, "no such file\n");
+	t.len = 0;
+	send(new_fd, &t.len, sizeof(int), 0);
+END:
+	close(fd);
+	return;
+}
